@@ -1,0 +1,20 @@
+{
+  "inputSize": 640,
+  "names": [
+    "resistor",
+    "capacitor",
+    "battery",
+    "fuse",
+    "diode",
+    "zener",
+    "led",
+    "scr",
+    "switch",
+    "lamp",
+    "ground",
+    "source",
+    "junction",
+    "terminal",
+    "text"
+  ]
+}

@@ -1,0 +1,22 @@
+# Update these paths to your YOLO-format dataset.
+path: ./dataset
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: resistor
+  1: capacitor
+  2: battery
+  3: fuse
+  4: diode
+  5: zener
+  6: led
+  7: scr
+  8: switch
+  9: lamp
+  10: ground
+  11: source
+  12: junction
+  13: terminal
+  14: text

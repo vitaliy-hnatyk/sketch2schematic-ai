@@ -1,0 +1,49 @@
+{
+  "name": "sketch2schematic-ai",
+  "private": true,
+  "version": "7.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:recognizer": "node scripts/test-recognizer.mjs",
+    "build:wasm": "sh scripts/build-wasm.sh",
+    "test:wasm": "node scripts/test-wasm.mjs",
+    "test:color-image": "node scripts/test-colored-image.mjs",
+    "serve:dist": "node scripts/serve-dist.mjs",
+    "test:pixi-graph": "node scripts/test-pixi-graph.mjs",
+    "test:structured-iec": "node scripts/test-structured-iec.mjs",
+    "test:hybrid-color-image": "node scripts/test-hybrid-color-image.mjs",
+    "test:iec": "node scripts/test-iec-classifier.mjs",
+    "test:iec-cap-regression": "node scripts/test-iec-capacitor-regression.mjs",
+    "test:current-upload": "node scripts/test-current-upload.mjs",
+    "test:vector-loop": "node scripts/test-vector-loop.mjs",
+    "test:settings": "node scripts/test-active-settings.mjs",
+    "test:ai-manifest": "node scripts/test-ai-manifest.mjs",
+    "test": "npm run test:ci",
+    "test:ci": "npm run test:ai-manifest && npm run test:recognizer && npm run test:pixi-graph && npm run test:wasm && npm run test:structured-iec && npm run test:hybrid-color-image && npm run test:iec && npm run test:iec-cap-regression && npm run test:current-upload && npm run test:vector-loop && npm run test:settings",
+    "check": "npm run test:ci && npm run build",
+    "test:all": "npm run test:ci && npm run test:color-image"
+  },
+  "dependencies": {
+    "@techstark/opencv-js": "^4.12.0-release.1",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@vitejs/plugin-react": "latest",
+    "onnxruntime-web": "^1.26.0",
+    "pixi.js": "^8.19.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "tesseract.js": "^7.0.0",
+    "vite": "latest"
+  },
+  "description": "Browser-first electrical schematic recognition and editing with React, PixiJS, ONNX Runtime Web, OpenCV/WASM, Tesseract, and a circuit graph.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.0"
+  }
+}
