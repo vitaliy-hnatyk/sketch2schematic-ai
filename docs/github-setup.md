@@ -11,6 +11,16 @@ git remote add origin <repository-url>
 git push -u origin main
 ```
 
+## Configure About and topics
+
+The recommended description and topics are stored in `.github/repository-metadata.json`. After pushing the repository, run:
+
+```bash
+npm run github:metadata -- OWNER/REPOSITORY
+```
+
+Set `GITHUB_PAGES_URL` to also configure the homepage URL. See [GitHub repository metadata](repository-metadata.md).
+
 ## Repository settings
 
 Recommended settings:

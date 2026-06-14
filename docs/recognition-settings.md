@@ -1,5 +1,13 @@
 # Recognition settings
 
+## Recognition speed
+
+- **Fast:** recommended default. Uses smaller working images, skips redundant OpenCV work, and disables OCR when selected.
+- **Balanced:** uses more image detail and runs OpenCV when fallback wires are incomplete.
+- **Accurate:** full-resolution path for difficult images; slowest mode.
+
+See [Performance and recognition speed](performance.md).
+
 ## Snap grid
 
 Controls final coordinate quantization and editor placement. A smaller grid preserves image geometry; a larger grid creates cleaner alignment but can move short components.

@@ -47,3 +47,13 @@ The current parser is designed for common YOLO detection exports. If a model exp
 ## Recommended classes
 
 Start with classes that are visually stable and electrically important. Keep `text` separate so OCR and geometry do not compete.
+
+## Recommended export command
+
+```bash
+python training/export_onnx.py \
+  --weights runs/circuit/yolo-circuit/weights/best.pt \
+  --imgsz 640
+```
+
+The repository export helper uses fixed FP32 input, disables embedded NMS, installs the ONNX file under `public/models/`, writes the matching label manifest, and runs `onnx.checker`.

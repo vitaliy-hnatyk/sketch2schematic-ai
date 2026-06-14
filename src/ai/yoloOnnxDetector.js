@@ -1,7 +1,35 @@
+import { createProcessingCanvas, imageDimensions } from './processingCanvas.js';
 import { DEFAULT_CIRCUIT_LABELS } from './modelManifest.js';
 
 let sessionCache = null;
 let sessionCacheKey = '';
+const detectionCache = new WeakMap();
+
+
+function cacheForImage(image) {
+  let cache = detectionCache.get(image);
+  if (!cache) {
+    cache = new Map();
+    detectionCache.set(image, cache);
+  }
+  return cache;
+}
+
+function cloneDetections(detections) {
+  return detections.map((detection) => ({
+    ...detection,
+    box: { ...detection.box },
+  }));
+}
+
+function fixedSessionInputSize(session, inputName) {
+  const metadata = session.inputMetadata?.[inputName];
+  const dimensions = metadata?.dimensions || metadata?.dims || [];
+  const height = Number(dimensions[dimensions.length - 2]);
+  const width = Number(dimensions[dimensions.length - 1]);
+  if (Number.isInteger(width) && width > 0 && width === height) return width;
+  return null;
+}
 
 function sigmoid(value) {
   return 1 / (1 + Math.exp(-value));
@@ -47,8 +75,7 @@ function nonMaximumSuppression(detections, iouThreshold) {
 }
 
 function createLetterbox(image, inputSize) {
-  const sourceWidth = image.naturalWidth || image.videoWidth || image.width;
-  const sourceHeight = image.naturalHeight || image.videoHeight || image.height;
+  const { width: sourceWidth, height: sourceHeight } = imageDimensions(image);
   if (!sourceWidth || !sourceHeight) throw new Error('The image has no valid dimensions.');
 
   const scale = Math.min(inputSize / sourceWidth, inputSize / sourceHeight);
@@ -56,9 +83,7 @@ function createLetterbox(image, inputSize) {
   const drawHeight = Math.max(1, Math.round(sourceHeight * scale));
   const padX = Math.floor((inputSize - drawWidth) / 2);
   const padY = Math.floor((inputSize - drawHeight) / 2);
-  const canvas = document.createElement('canvas');
-  canvas.width = inputSize;
-  canvas.height = inputSize;
+  const canvas = createProcessingCanvas(inputSize, inputSize);
   const context = canvas.getContext('2d', { willReadFrequently: true });
   context.fillStyle = 'rgb(114,114,114)';
   context.fillRect(0, 0, inputSize, inputSize);
@@ -231,24 +256,45 @@ export function resetYoloSession() {
 
 export async function detectWithYolo(image, model, options = {}, onState) {
   const labels = model.labels?.length ? model.labels : DEFAULT_CIRCUIT_LABELS;
-  const inputSize = Math.max(320, Math.min(1280, Number(model.inputSize || options.inputSize || 640)));
+  const requestedInputSize = Math.max(320, Math.min(1280, Number(options.inputSize || model.inputSize || 640)));
   const confidenceThreshold = Number(options.confidenceThreshold || 0.35);
   const iouThreshold = Number(options.iouThreshold || 0.45);
-  const cacheKey = model.cacheKey || `${model.name || model.url || 'model'}:${model.buffer?.byteLength || 0}`;
-  const { session, ort, provider } = await createSession(model, cacheKey, onState);
-  const letterbox = createLetterbox(image, inputSize);
+  const modelCacheKey = model.cacheKey || `${model.name || model.url || 'model'}:${model.buffer?.byteLength || 0}`;
+  const { session, ort, provider } = await createSession(model, modelCacheKey, onState);
   const inputName = session.inputNames[0];
+  const inputSize = fixedSessionInputSize(session, inputName) || requestedInputSize;
+  const resultCacheKey = JSON.stringify({
+    modelCacheKey,
+    inputSize,
+    confidenceThreshold,
+    iouThreshold,
+    labels,
+  });
+  const imageCache = cacheForImage(image);
+  const cached = imageCache.get(resultCacheKey);
+  if (cached) {
+    onState?.({ status: 'working', message: 'Using cached YOLO detections…' });
+    return { ...cached, detections: cloneDetections(cached.detections), durationMs: 0, cached: true };
+  }
+
+  const preprocessStarted = performance.now();
+  const letterbox = createLetterbox(image, inputSize);
   const tensor = new ort.Tensor('float32', letterbox.tensorData, [1, 3, inputSize, inputSize]);
+  const preprocessMs = performance.now() - preprocessStarted;
   onState?.({ status: 'working', message: `Running YOLO with ONNX Runtime ${provider.toUpperCase()}…` });
   const started = performance.now();
   const outputs = await session.run({ [inputName]: tensor });
   const outputName = session.outputNames[0];
   const rawDetections = decodeOutput(outputs[outputName], labels, letterbox, confidenceThreshold);
   const detections = nonMaximumSuppression(rawDetections, iouThreshold);
-  return {
+  const result = {
     detections,
     provider,
     durationMs: performance.now() - started,
+    preprocessMs,
     inputSize,
+    cached: false,
   };
+  imageCache.set(resultCacheKey, result);
+  return { ...result, detections: cloneDetections(result.detections) };
 }

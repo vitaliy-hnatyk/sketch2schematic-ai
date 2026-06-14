@@ -3,7 +3,7 @@ import { recognizeHybridSchematic } from './hybridImageRecognizer.js';
 import { imageToImageData, mapRasterObjects } from './imageRaster.js';
 
 export function extractImageFallback(image, width, height, options) {
-  const prepared = imageToImageData(image);
+  const prepared = imageToImageData(image, Number(options.imageMaxDimension || 1400));
   const result = recognizeHybridSchematic(
     prepared.imageData.data,
     prepared.width,

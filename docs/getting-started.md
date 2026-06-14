@@ -42,3 +42,16 @@ public/models/labels.json
 ```
 
 The labels manifest must match the model output class order. See [Model contract](model-contract.md).
+
+## Train a detector
+
+The repository includes commands for dataset validation, training, evaluation, and ONNX export:
+
+```bash
+npm run model:check-data
+npm run model:train
+npm run model:validate
+npm run model:export
+```
+
+See [Train and deploy the circuit-symbol model](model-training.md).

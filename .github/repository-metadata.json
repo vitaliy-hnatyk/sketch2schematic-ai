@@ -1,0 +1,25 @@
+{
+  "description": "Browser-first AI tool that converts hand-drawn or uploaded electrical diagrams into editable schematics with React, PixiJS, ONNX, OpenCV/WASM, Tesseract, and circuit-graph reconstruction.",
+  "topics": [
+    "electrical-engineering",
+    "circuit-diagram",
+    "schematic",
+    "schematic-editor",
+    "circuit-recognition",
+    "computer-vision",
+    "machine-learning",
+    "web-workers",
+    "yolo",
+    "onnx",
+    "onnxruntime",
+    "webgpu",
+    "webassembly",
+    "pixijs",
+    "react",
+    "opencv",
+    "tesseract",
+    "ocr",
+    "electronics",
+    "diagram-editor"
+  ]
+}

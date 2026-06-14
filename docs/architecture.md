@@ -5,10 +5,10 @@
 ```mermaid
 flowchart LR
   A[Image or pen strokes] --> B[Preprocessing]
-  B --> C1[YOLO ONNX symbols]
-  B --> C2[OpenCV/WASM wires]
-  B --> C3[Tesseract OCR]
-  B --> C4[Heuristic fallback]
+  B --> C1[YOLO worker: ONNX WebGPU/WASM]
+  B --> C2[OpenCV worker: OpenCV/WASM wires]
+  B --> C3[Tesseract OCR worker]
+  B --> C4[Image worker: bundled WASM + heuristic IEC]
   C1 --> D[Detection merge]
   C2 --> D
   C3 --> D
@@ -38,7 +38,7 @@ The circuit graph is the source of electrical connectivity. Coordinates alone ar
 
 ### Worker boundary
 
-Expensive image analysis is performed in a Web Worker where possible to keep the editor responsive.
+Expensive image analysis is split across dedicated workers. The image worker executes the bundled line-detection WebAssembly and heuristic classifiers. Separate YOLO and OpenCV workers isolate large runtimes and keep their sessions warm. Tesseract uses its own internal worker. Inputs are transferred as `ImageBitmap` or `ArrayBuffer`. See [Worker runtime](worker-runtime.md).
 
 ## Object model
 

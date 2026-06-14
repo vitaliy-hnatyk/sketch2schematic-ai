@@ -42,3 +42,9 @@ The pipeline should not silently invent a high-confidence component. Unsupported
 ## Adding another detector
 
 A new detector should return objects compatible with `detectionToSchematic.js` or directly return the shared schematic object format. Keep detector-specific preprocessing outside the graph layer.
+
+## Performance behavior
+
+The application defaults to Fast mode. YOLO and OpenCV are started together when both are needed. OpenCV is skipped when the heuristic recognizer has already produced enough wires. OCR is optional and disabled by default. Stage outputs are cached for repeated analysis of the same image and settings.
+
+See [Performance and recognition speed](performance.md).

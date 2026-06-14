@@ -1,10 +1,40 @@
-# Architecture
+# AI recognition architecture
 
-The maintained architecture document is located at [docs/architecture.md](docs/architecture.md).
+## Browser modules
 
-Additional design documents:
+### `src/ai/yoloOnnxDetector.js`
+- letterbox preprocessing
+- NCHW float tensor creation
+- WebGPU-first ONNX Runtime session
+- WASM fallback
+- YOLOv5/v8-style output parsing
+- NMS
 
-- [AI pipeline](docs/ai-pipeline.md)
-- [Circuit graph](docs/circuit-graph.md)
-- [Project structure](docs/project-structure.md)
-- [Architecture decisions](docs/README.md#architecture-decisions)
+### `src/ai/openCvWireDetector.js`
+- OpenCV.js WASM initialization
+- grayscale and adaptive threshold
+- Canny edge detection
+- probabilistic Hough transform
+- axis filtering and line merging
+
+### `src/ai/ocrService.js`
+- lazy Tesseract worker
+- local English traineddata
+- sparse-text OCR
+- nearest-component assignment for reference/value metadata
+
+### `src/ai/aiPipeline.js`
+- combines fallback recognition, YOLO symbols, OpenCV wires and OCR
+- sends the merged result into the existing graph cleanup
+
+### `src/utils/recognizer.js`
+- ports and terminal normalization
+- wire merging
+- snapping
+- junction reconstruction
+
+### `src/components/SchematicPixi.jsx`
+- PixiJS/WebGL rendering
+- connected component movement
+- pan and zoom
+- editable ports and wires

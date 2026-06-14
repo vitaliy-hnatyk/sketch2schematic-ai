@@ -1,7 +1,7 @@
 {
   "name": "sketch2schematic-ai",
   "private": true,
-  "version": "7.1.0",
+  "version": "7.5.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -22,9 +22,19 @@
     "test:settings": "node scripts/test-active-settings.mjs",
     "test:ai-manifest": "node scripts/test-ai-manifest.mjs",
     "test": "npm run test:ci",
-    "test:ci": "npm run test:ai-manifest && npm run test:recognizer && npm run test:pixi-graph && npm run test:wasm && npm run test:structured-iec && npm run test:hybrid-color-image && npm run test:iec && npm run test:iec-cap-regression && npm run test:current-upload && npm run test:vector-loop && npm run test:settings",
+    "test:ci": "npm run test:workers && npm run test:engine-modes && npm run test:ai-manifest && npm run test:recognizer && npm run test:pixi-graph && npm run test:wasm && npm run test:structured-iec && npm run test:hybrid-color-image && npm run test:iec && npm run test:iec-cap-regression && npm run test:current-upload && npm run test:vector-loop && npm run test:settings && npm run test:performance && npm run test:model-guide",
     "check": "npm run test:ci && npm run build",
-    "test:all": "npm run test:ci && npm run test:color-image"
+    "test:all": "npm run test:ci && npm run test:color-image",
+    "github:metadata": "node scripts/configure-github-metadata.mjs",
+    "test:performance": "node scripts/test-performance-profiles.mjs",
+    "test:workers": "node scripts/test-worker-pipeline.mjs",
+    "model:check-data": "python training/check_dataset.py",
+    "model:train": "python training/train.py",
+    "model:validate": "python training/validate.py",
+    "model:export": "python training/export_onnx.py",
+    "model:install": "python -m pip install -r training/requirements.txt",
+    "test:model-guide": "node scripts/test-model-guide.mjs",
+    "test:engine-modes": "node scripts/test-engine-modes.mjs"
   },
   "dependencies": {
     "@techstark/opencv-js": "^4.12.0-release.1",

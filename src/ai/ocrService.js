@@ -1,6 +1,8 @@
+import { createProcessingCanvas, imageDimensions } from './processingCanvas.js';
 import { fitImageRect } from '../utils/imageRaster.js';
 
 let workerPromise;
+const ocrCache = new WeakMap();
 
 function flattenWordsFromBlocks(blocks) {
   const words = [];
@@ -45,18 +47,76 @@ async function getWorker(onState) {
   return workerPromise;
 }
 
-export async function recognizeSchematicText(image, options = {}, onState) {
-  const worker = await getWorker(onState);
-  onState?.({ status: 'working', message: 'Running Tesseract OCR for labels and values…' });
-  const started = performance.now();
-  const { data } = await worker.recognize(image, {}, { text: true, blocks: true });
-  const minimumConfidence = Number(options.minimumConfidence || 38);
-  const words = flattenWordsFromBlocks(data.blocks)
-    .filter((word) => word.text && word.bbox && word.confidence >= minimumConfidence);
+function prepareOcrCanvas(image, maxDimension) {
+  const { width: sourceWidth, height: sourceHeight } = imageDimensions(image);
+  const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+  if (scale >= 0.999) return { source: image, scale: 1 };
+
+  const canvas = createProcessingCanvas(
+    Math.max(1, Math.round(sourceWidth * scale)),
+    Math.max(1, Math.round(sourceHeight * scale)),
+  );
+  const context = canvas.getContext('2d', { alpha: false });
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return { source: canvas, scale };
+}
+
+function cacheForImage(image) {
+  let cache = ocrCache.get(image);
+  if (!cache) {
+    cache = new Map();
+    ocrCache.set(image, cache);
+  }
+  return cache;
+}
+
+function rescaleWord(word, scale) {
+  if (!word.bbox || scale === 1) return word;
   return {
-    text: String(data.text || '').trim(),
-    words,
-    durationMs: performance.now() - started,
+    ...word,
+    bbox: {
+      x0: word.bbox.x0 / scale,
+      y0: word.bbox.y0 / scale,
+      x1: word.bbox.x1 / scale,
+      y1: word.bbox.y1 / scale,
+    },
+  };
+}
+
+export async function recognizeSchematicText(image, options = {}, onState) {
+  const maxDimension = Math.max(640, Number(options.maxDimension || 1400));
+  const cache = cacheForImage(image);
+  const cacheKey = String(maxDimension);
+  let raw = cache.get(cacheKey);
+  const wasCached = Boolean(raw);
+
+  if (!raw) {
+    const worker = await getWorker(onState);
+    onState?.({ status: 'working', message: 'Running Tesseract OCR for labels and values…' });
+    const prepared = prepareOcrCanvas(image, maxDimension);
+    const started = performance.now();
+    const { data } = await worker.recognize(prepared.source, {}, { text: true, blocks: true });
+    raw = {
+      text: String(data.text || '').trim(),
+      words: flattenWordsFromBlocks(data.blocks).map((word) => rescaleWord(word, prepared.scale)),
+      durationMs: performance.now() - started,
+      processedScale: prepared.scale,
+    };
+    cache.set(cacheKey, raw);
+  } else {
+    onState?.({ status: 'working', message: 'Using cached OCR result…' });
+  }
+
+  const minimumConfidence = Number(options.minimumConfidence || 38);
+  return {
+    text: raw.text,
+    words: raw.words.filter((word) => word.text && word.bbox && word.confidence >= minimumConfidence),
+    durationMs: wasCached ? 0 : raw.durationMs,
+    cached: wasCached,
   };
 }
 

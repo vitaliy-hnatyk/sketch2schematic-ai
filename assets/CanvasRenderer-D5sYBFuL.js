@@ -1,0 +1,1 @@
+import{r as e}from"./SchematicPixi-DEBXyvQK.js";export{e as CanvasRenderer};

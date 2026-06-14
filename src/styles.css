@@ -822,3 +822,58 @@ canvas {
   letter-spacing: .06em;
   text-transform: uppercase;
 }
+
+.performance-note {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 9px;
+  padding: 8px 10px;
+  color: #526071;
+  background: #f8fbff;
+  border: 1px solid #d7e5f5;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.performance-note strong { color: #244a77; }
+.performance-note small { color: #758398; }
+.slow-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 5px;
+  color: #8a5a00;
+  background: #fff2cc;
+  border-radius: 999px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+
+.engine-explanation {
+  margin: 6px 0 10px;
+  padding: 8px 10px;
+  border: 1px solid #cbd7e4;
+  border-radius: 8px;
+  background: #f7fafc;
+  color: #435267;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.engine-explanation.yolo-only { border-color: #7bb2e8; background: #eef7ff; }
+.engine-explanation.ocr-only { border-color: #c6a4df; background: #faf4ff; }
+.engine-explanation.heuristic-only { border-color: #96c7a8; background: #f1fbf4; }
+.model-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.engine-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 9px !important;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.engine-badge.ready { background: #dff6e8; color: #087048; }
+.engine-badge.missing { background: #ffe6e6; color: #a12424; }
+.check-row input:disabled + span { opacity: .55; }

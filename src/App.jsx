@@ -13,8 +13,9 @@ import { cleanupGraph, recognizeVectorStrokes } from './utils/recognizer.js';
 import { objectBounds, retypeObject } from './utils/symbols.js';
 import { runAiRecognitionPipeline } from './ai/aiPipeline.js';
 import { DEFAULT_CIRCUIT_LABELS, parseLabelsManifest } from './ai/modelManifest.js';
-import { resetYoloSession } from './ai/yoloOnnxDetector.js';
+import { resetYoloWorkerSession } from './ai/workerYoloDetector.js';
 import { APP_BUILD_LABEL } from './config/appMeta.js';
+import { getRecognitionProfile } from './config/performanceProfiles.js';
 
 const CANVAS_WIDTH = 900;
 const CANVAS_HEIGHT = 650;
@@ -28,9 +29,11 @@ export default function App() {
     confidenceThreshold: 0.6,
   });
   const [aiSettings, setAiSettings] = useState({
+    performanceMode: 'fast',
+    outputMode: 'hybrid',
     useYolo: true,
-    useOpenCv: true,
-    useOcr: true,
+    useOpenCv: false,
+    useOcr: false,
     yoloConfidence: 0.35,
     nmsIou: 0.45,
     ocrConfidence: 38,
@@ -46,7 +49,7 @@ export default function App() {
   });
   const [aiState, setAiState] = useState({
     status: '',
-    message: 'AI pipeline: ONNX model optional • OpenCV wires • Tesseract OCR.',
+    message: 'Fast pipeline: YOLO/ONNX and bundled WASM first. OpenCV Lite is optional because full OpenCV is slow.',
   });
   const [strokes, setStrokes] = useState([]);
   const [backgroundImage, setBackgroundImage] = useState(null);
@@ -103,7 +106,7 @@ export default function App() {
     if (!file) return;
     try {
       const buffer = await file.arrayBuffer();
-      resetYoloSession();
+      resetYoloWorkerSession();
       setModelState((current) => ({
         ...current,
         name: file.name,
@@ -124,7 +127,7 @@ export default function App() {
     if (!file) return;
     try {
       const manifest = parseLabelsManifest(await file.text());
-      resetYoloSession();
+      resetYoloWorkerSession();
       setModelState((current) => ({
         ...current,
         labels: manifest.names,
@@ -208,11 +211,23 @@ export default function App() {
   };
 
   const convertSketch = async () => {
+    const conversionStarted = performance.now();
+    const recognitionProfile = getRecognitionProfile(aiSettings.performanceMode);
+    if (aiSettings.outputMode === 'yolo-only' && !(modelState.buffer || modelState.url)) {
+      setObjects([]);
+      setSelected(-1);
+      setAiState({
+        status: 'error',
+        message: 'YOLO-only cannot run: load a trained circuit-yolo.onnx model and matching labels.json.',
+      });
+      setStatus('YOLO-only cannot run because no ONNX model is loaded. The previous result was cleared.');
+      return;
+    }
     setConverting(true);
     setStatus('Analyzing strokes, grouping symbol parts, and rebuilding the connection graph…');
     let recognizedSummary = '';
     let recognitionMode = '';
-    const settingsSummary = `grid ${settings.gridSize}px • tolerance ${settings.tolerance} • ${confidenceLabel(settings.confidenceThreshold)}`;
+    const settingsSummary = `${recognitionProfile.label} • grid ${settings.gridSize}px • tolerance ${settings.tolerance} • ${confidenceLabel(settings.confidenceThreshold)}`;
     try {
       snapshot();
       let result = [];
@@ -225,12 +240,12 @@ export default function App() {
             backgroundImage,
             CANVAS_WIDTH,
             CANVAS_HEIGHT,
-            settings,
+            { ...settings, imageMaxDimension: recognitionProfile.imageMaxDimension },
             setWasmState,
           );
           imageResult = wasmResult.objects;
           imageDuration = wasmResult.durationMs;
-          if (['color-symbols', 'hybrid-color-monochrome', 'monochrome-symbols', 'color-foreground-monochrome', 'structured-iec'].includes(wasmResult.mode)) {
+          if (['color-symbols', 'hybrid-color-monochrome', 'monochrome-symbols', 'color-foreground-monochrome', 'structured-iec'].some((mode) => wasmResult.mode.startsWith(mode))) {
             const types = wasmResult.diagnostics?.types || {};
             const summary = Object.entries(types).map(([type, count]) => `${count} ${type}`).join(', ');
             recognizedSummary = summary;
@@ -248,12 +263,26 @@ export default function App() {
             backgroundImage,
             CANVAS_WIDTH,
             CANVAS_HEIGHT,
-            settings,
+            { ...settings, imageMaxDimension: recognitionProfile.imageMaxDimension },
           );
           imageDuration = performance.now() - fallbackStarted;
         }
         let combinedImageResult = imageResult;
-        if (aiSettings.useYolo || aiSettings.useOpenCv || aiSettings.useOcr) {
+        if (aiSettings.outputMode === 'heuristic-only') {
+          recognitionMode = `heuristic-only:${recognitionMode || 'wasm'}`;
+          recognizedSummary = recognizedSummary || 'Bundled WASM/heuristic only';
+          setAiState({
+            status: 'ready',
+            message: 'Heuristic-only mode: YOLO, OpenCV, and Tesseract were not run.',
+          });
+        }
+        if (aiSettings.outputMode !== 'heuristic-only' && (
+          aiSettings.outputMode === 'yolo-only'
+          || aiSettings.outputMode === 'ocr-only'
+          || aiSettings.useYolo
+          || aiSettings.useOpenCv
+          || aiSettings.useOcr
+        )) {
           const aiResult = await runAiRecognitionPipeline({
             image: backgroundImage,
             fallbackObjects: imageResult,
@@ -267,12 +296,17 @@ export default function App() {
           combinedImageResult = aiResult.objects;
           recognitionMode = aiResult.mode;
           const yoloCount = aiResult.diagnostics?.yolo?.detections || 0;
+          const yoloSymbols = aiResult.diagnostics?.yolo?.symbols || 0;
           const ocrWords = aiResult.diagnostics?.ocr?.words || 0;
+          const ocrAttached = aiResult.diagnostics?.ocr?.attachedObjects || 0;
           const cvWires = aiResult.diagnostics?.opencv?.wires || 0;
+          const yoloSkipped = aiResult.diagnostics?.yolo?.reason || aiResult.diagnostics?.yolo?.error || '';
           recognizedSummary = [
-            yoloCount ? `${yoloCount} YOLO detections` : '',
+            yoloCount ? `${yoloCount} YOLO detections / ${yoloSymbols} symbols` : '',
+            yoloSkipped ? `YOLO: ${yoloSkipped}` : '',
             cvWires ? `${cvWires} OpenCV wires` : '',
-            ocrWords ? `${ocrWords} OCR words` : '',
+            ocrWords ? `${ocrWords} OCR words / ${ocrAttached} attached` : '',
+            aiSettings.outputMode === 'ocr-only' && !ocrWords ? 'OCR found no usable words' : '',
           ].filter(Boolean).join(', ') || recognizedSummary;
         }
         result = cleanupGraph(result.concat(combinedImageResult), settings);
@@ -296,14 +330,14 @@ export default function App() {
 
       const uncertain = converted.filter((object) => object.type === 'unknown').length;
       if (!converted.length) {
-        setStatus(`${APP_BUILD_LABEL} • ${settingsSummary} • nothing recognized.`);
+        setStatus(`${APP_BUILD_LABEL} • ${settingsSummary} • ${(performance.now() - conversionStarted).toFixed(0)} ms • nothing recognized.`);
       } else if (uncertain) {
         setStatus(
-          `${APP_BUILD_LABEL} • ${recognitionMode || 'vector'} • ${settingsSummary} • ${converted.length} objects, ${uncertain} REVIEW.`,
+          `${APP_BUILD_LABEL} • ${recognitionMode || 'vector'} • ${settingsSummary} • ${(performance.now() - conversionStarted).toFixed(0)} ms • ${converted.length} objects, ${uncertain} REVIEW.`,
         );
       } else {
         setStatus(
-          `${APP_BUILD_LABEL} • ${recognitionMode || 'vector'} • ${settingsSummary}${recognizedSummary ? ` • ${recognizedSummary}` : ''} • ${converted.length} objects.`,
+          `${APP_BUILD_LABEL} • ${recognitionMode || 'vector'} • ${settingsSummary}${recognizedSummary ? ` • ${recognizedSummary}` : ''} • ${(performance.now() - conversionStarted).toFixed(0)} ms • ${converted.length} objects.`,
         );
       }
     } catch (error) {
